@@ -3,11 +3,17 @@ from fastapi.middleware.cors import CORSMiddleware
 import tensorflow as tf
 import numpy as np
 import cv2
+import os
 
 app = FastAPI()
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
-model = tf.keras.models.load_model('digit_model.h5')
+# טעינת המודל עם compile=False כדי למנוע שגיאות של גרסאות Keras
+try:
+    model = tf.keras.models.load_model('digit_model.h5', compile=False)
+except Exception as e:
+    print(f"שגיאה בטעינת המודל: {e}")
+    raise
 
 @app.post("/predict")
 async def predict(file: UploadFile = File(...)):
@@ -37,10 +43,12 @@ async def predict(file: UploadFile = File(...)):
             input_data = input_data.reshape(1, 28, 28, 1)
             
             prediction = model.predict(input_data)
-            # לוקחים את הספרה עם ההסתברות הכי גבוהה
             final_number += str(np.argmax(prediction))
     
     return {"result": final_number}
+
+# הפעלה דינמית לפי הפורט של Render
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="127.0.0.1", port=8000)
+    port = int(os.environ.get("PORT", 10000))
+    uvicorn.run(app, host="0.0.0.0", port=port)
